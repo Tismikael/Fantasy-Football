@@ -13,7 +13,7 @@ function Index() {
             </span>
             <div className="space-x-2 sm:space-x-5">
                 <Link to='/login'>
-                    <button className="border px-2 py-1 border-gray-200 rounded-md hover:bg-gray-100 hover:cursor-pointer">Login</button>
+                    <button className="border px-2 py-1 text-white border-gray-500 rounded-md hover:bg-gray-800 hover:cursor-pointer">Login</button>
                 </Link>  
 
                 <Link to='/signup'>
@@ -23,8 +23,8 @@ function Index() {
         </div>
         <div className= "w-full h-screen bg-[url('/fepl-landing-page.jpg')] clip-path:polygon(0% 0%, 100% 0%, 100% 100%, 00% 100%) bg-cover bg-center">
             <div className="flex flex-col text-center space-y-4 pt-25">
-                <h1 className="text-4xl sm:text-8xl font-bold">Build Your Dream Team</h1>
-                <p className="text-xl font-medium text-gray-900">Compete with friends in the most exciting and competitive league in the world! </p>
+                <h1 className="text-4xl sm:text-8xl font-bold text-gray-100">Build Your Dream Team</h1>
+                <p className="text-xl font-medium text-gray-300">Compete with friends in the most exciting and competitive league in the world! </p>
             </div>
         </div>
     </div>
