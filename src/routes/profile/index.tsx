@@ -3,8 +3,9 @@ import { useEffect, useState } from 'react'
 import type { User } from '@supabase/supabase-js'
 import { supabase } from '../../lib/supabaseClient'
 import { BsPerson } from "react-icons/bs";
-import { Player } from '../../lib/models/player'
+import { Player, type Position } from '../../lib/models/player'
 import { Team } from '../../lib/models/team';
+import { TeamBuilder } from './-components/TeamBuilder'
 
 
 export const Route = createFileRoute('/profile/')({
@@ -13,11 +14,38 @@ export const Route = createFileRoute('/profile/')({
 
 
 
-function PlayerCard({ player }: { player: Player }) {
+function PlayerCard({ player, onClick }: { player: Player; onClick: () => void }) {
   return (
-    <div className="flex flex-col items-center justify-center gap-1 bg-blue-200 w-13 h-15 rounded-lg sm:w-20 sm:h-20 sm:rounded-3xl">
+    <div
+      onClick={onClick}
+      className="flex flex-col items-center justify-center gap-1 bg-blue-200 w-13 h-15 rounded-lg sm:w-20 sm:h-20 sm:rounded-3xl cursor-pointer hover:bg-blue-300"
+    >
       <span className="text-black text-xs sm:text-md font-semibold truncate w-full text-center px-1">{player.name}</span>
       <span className="text-black text-xs sm:text-md font-semibold truncate w-full text-center px-1">{player.jerseyNumber}</span>
+    </div>
+  )
+}
+
+function PlayerModal({ player, onClose }: { player: Player; onClose: () => void }) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
+      onClick={onClose}
+    >
+      <div
+        className="relative min-w-[250px] rounded-xl bg-white p-6 text-center"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <button
+          onClick={onClose}
+          className="absolute right-3 top-2 text-xl text-gray-500 hover:text-black cursor-pointer"
+        >
+          &times;
+        </button>
+        <h2 className="text-xl font-bold text-black">{player.name}</h2>
+        <p className="mt-2 text-gray-700 font-bold text-xl sm:text-3xl">{player.jerseyNumber}</p>
+        <p className="mt-1 text-gray-700 font-bold text-xl sm:text-1xl">{player.team}</p>
+      </div>
     </div>
   )
 }
@@ -32,22 +60,22 @@ function EmptyPlayerCard(){
 
 // 1-4-3-3 formation, back row (GK) to front row (ST)
 const formation: Player[][] = [
-  [new Player('Alisson', 'GK', 'My Team', 1, 5.5)],
+  [new Player('Alisson', 'GK', 'Liverpool', 1, 5.5)],
   [
-    new Player('Trent', 'DF', 'My Team', 2, 7.0),
-    new Player('Van Dijk', 'DF', 'My Team', 4, 6.5),
-    new Player('Gabriel', 'DF', 'My Team', 6, 5.5),
-    new Player('Robertson', 'DF', 'My Team', 26, 6.0),
+    new Player('Trent', 'DF', 'Real Madrid', 2, 7.0),
+    new Player('Van Dijk', 'DF', 'Liverpool', 4, 6.5),
+    new Player('Gabriel', 'DF', 'Arsenal', 6, 5.5),
+    new Player('Robertson', 'DF', 'Liverpool', 26, 6.0),
   ],
   [
-    new Player('Rice', 'MF', 'My Team', 41, 5.5),
-    new Player('Bruno Fernandes', 'MF', 'My Team', 8, 9.0),
-    new Player('Palmer', 'MF', 'My Team', 20, 10.5),
+    new Player('Rice', 'MF', 'Arsenal', 41, 5.5),
+    new Player('Bruno Fernandes', 'MF', 'Manchester United', 8, 9.0),
+    new Player('Palmer', 'MF', 'Chelsea', 20, 10.5),
   ],
   [
-    new Player('Salah', 'ST', 'My Team', 11, 13.0),
-    new Player('Haaland', 'ST', 'My Team', 9, 14.5),
-    new Player('Isak', 'ST', 'My Team', 14, 8.5),
+    new Player('Salah', 'ST', 'Liverpool', 11, 13.0),
+    new Player('Haaland', 'ST', 'Manchester City', 9, 14.5),
+    new Player('Isak', 'ST', 'Liverpool', 14, 8.5),
   ],
 ]
 
@@ -56,14 +84,21 @@ const sampleFormation: number[][] = [
 ]
 
 const reserves: Player[] = [
-  new Player('Raya', 'GK', 'My Team', 22, 5.0),
-  new Player('Saliba', 'DF', 'My Team', 12, 5.5),
-  new Player('Foden', 'MF', 'My Team', 47, 7.5),
-  new Player('Watkins', 'ST', 'My Team', 9, 8.0),
+  new Player('Raya', 'GK', 'Arsenal', 22, 5.0),
+  new Player('Saliba', 'DF', 'Arsenal', 12, 5.5),
+  new Player('Foden', 'MF', 'Manchester City', 47, 7.5),
+  new Player('Watkins', 'ST', 'Aston Villa', 9, 8.0),
 ]
 
 const rowTopPercent = [88, 64, 38, 14]
 const minRTP = [50, 40, 20, 10]
+
+// Same back-to-front order as rowTopPercent/minRTP
+const formationOrder: Position[] = ['GK', 'DF', 'MF', 'ST']
+
+function groupIntoFormation(players: Player[]): Player[][] {
+  return formationOrder.map((position) => players.filter((p) => p.position === position))
+}
 
 function useIsSmUp() {
   const [isSmUp, setIsSmUp] = useState(false)
@@ -83,8 +118,11 @@ function Profile() {
   const navigate = useNavigate();
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const [hasTeam, setHasTeam] = useState(true);
+  const [hasTeam, setHasTeam] = useState(false);
   const [team, setTeam] = useState<Team | null>(null);
+  const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
+  const [isCreatingTeam, setIsCreatingTeam] = useState(false);
+  const [customFormation, setCustomFormation] = useState<Player[][] | null>(null);
   const isSmUp = useIsSmUp();
 
   useEffect(() => {
@@ -103,11 +141,17 @@ function Profile() {
   };
 
   const handleCreateTeam = () => {
+    setIsCreatingTeam(true);
+  };
 
+  const handleSaveTeam = (players: Player[]) => {
+    setCustomFormation(groupIntoFormation(players));
+    setHasTeam(true);
+    setIsCreatingTeam(false);
   };
 
   const handleLeaderboard = () => {
-    navigate({ to: '/about'});
+    navigate({ to: '/leaderboard'});
   };
 
   const handleLogout = async () => {
@@ -156,7 +200,7 @@ function Profile() {
       </div>
 
       {/* Create Team Section */}
-      {!hasTeam && (
+      {!hasTeam && !isCreatingTeam && (
         <div className="flex justify-start mt-5 px-5">
           <button 
             onClick={handleCreateTeam}
@@ -168,47 +212,59 @@ function Profile() {
       )}
 
       {/* Soccer Field Section  */}
-      <div className="mt-5 relative flex justify-center items-center bg-[url('/soccer-field.jpg')] bg-no-repeat bg-center bg-[length:70%_100%] h-screen w-screen ">
-          {hasTeam ? (
-            formation.map((row, rowIndex) =>
-              row.map((player, i) => {
-                const left = 15 + ((i + 1) / (row.length + 1)) * 70
-                return (
-                  <div
-                    key={player.jerseyNumber}
-                    className="absolute -translate-x-1/2 -translate-y-1/2"
-                    style={{ top: `${rowTopPercent[rowIndex]}%`, left: `${left}%` }}
-                  >
-                    <PlayerCard player={player} />
-                  </div>
-                )
-              })
-            )
-          ) : (
-            sampleFormation.map((row, rowIndex) =>
-              row.map((_, i) => {
-                const left = 15 + ((i + 1) / (row.length + 1)) * 70
-                const top = isSmUp ? rowTopPercent[rowIndex] : minRTP[rowIndex]
-                return (
-                  <div
-                    key={`${rowIndex}-${i}`}
-                    className="absolute -translate-x-1/2 -translate-y-1/2"
-                    style={{ top: `${top}%`, left: `${left}%` }}
-                  >
-                    <EmptyPlayerCard />
-                  </div>
-                )
-              })
-            )
-          )}
-      </div>
+      {isCreatingTeam ? (
+        <TeamBuilder onCancel={() => setIsCreatingTeam(false)} onSave={handleSaveTeam} />
+      ) : (
+        <div className="mt-5 relative flex justify-center items-center bg-[url('/soccer-field.jpg')] bg-no-repeat bg-center bg-[length:70%_100%] h-screen w-screen ">
+            {hasTeam ? (
+              (customFormation ?? formation).map((row, rowIndex) =>
+                row.map((player, i) => {
+                  const left = 15 + ((i + 1) / (row.length + 1)) * 70
+                  return (
+                    <div
+                      key={player.jerseyNumber}
+                      className="absolute -translate-x-1/2 -translate-y-1/2"
+                      style={{ top: `${rowTopPercent[rowIndex]}%`, left: `${left}%` }}
+                    >
+                      <PlayerCard player={player} onClick={() => setSelectedPlayer(player)} />
+                    </div>
+                  )
+                })
+              )
+            ) : (
+              sampleFormation.map((row, rowIndex) =>
+                row.map((_, i) => {
+                  const left = 15 + ((i + 1) / (row.length + 1)) * 70
+                  const top = isSmUp ? rowTopPercent[rowIndex] : minRTP[rowIndex]
+                  return (
+                    <div
+                      key={`${rowIndex}-${i}`}
+                      className="absolute -translate-x-1/2 -translate-y-1/2"
+                      style={{ top: `${top}%`, left: `${left}%` }}
+                    >
+                      <EmptyPlayerCard />
+                    </div>
+                  )
+                })
+              )
+            )}
+        </div>
+      )}
 
       {/* Reserves Section */}
-      <div className="flex justify-center gap-4 mt-5">
-        {hasTeam
-          ? reserves.map((player) => <PlayerCard key={player.jerseyNumber} player={player} />)
-          : reserves.map((_, i) => <EmptyPlayerCard key={i} />)}
-      </div>
+      {!isCreatingTeam && (
+        <div className="flex justify-center gap-4 mt-5">
+          {hasTeam
+            ? reserves.map((player) => (
+                <PlayerCard key={player.jerseyNumber} player={player} onClick={() => setSelectedPlayer(player)} />
+              ))
+            : reserves.map((_, i) => <EmptyPlayerCard key={i} />)}
+        </div>
+      )}
+
+      {selectedPlayer && (
+        <PlayerModal player={selectedPlayer} onClose={() => setSelectedPlayer(null)} />
+      )}
 
     </div>
   )

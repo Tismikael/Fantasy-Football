@@ -1,4 +1,4 @@
-type Position = "GK" | "DF" | "MF" | "ST";
+export type Position = "GK" | "DF" | "MF" | "ST";
 
 export class Player {
 
