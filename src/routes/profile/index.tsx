@@ -96,39 +96,64 @@ function groupIntoFormation(players: Player[]): Player[][] {
   return formationOrder.map((position) => players.filter((p) => p.position === position))
 }
 
-function useIsSmUp() {
-  const [isSmUp, setIsSmUp] = useState(false)
-  useEffect(() => {
-    const mql = window.matchMedia('(min-width: 640px)')
-    setIsSmUp(mql.matches)
-    const handler = (e: MediaQueryListEvent) => setIsSmUp(e.matches)
-    mql.addEventListener('change', handler)
-    return () => mql.removeEventListener('change', handler)
-  }, [])
-  return isSmUp
-}
-
 
 
 function Profile() {
   const navigate = useNavigate();
   const [user, setUser] = useState<User | null>(null);
+  const [team, setTeam] = useState<Team | null>(null);
   const [loading, setLoading] = useState(true);
   const [hasTeam, setHasTeam] = useState(false);
-  const [team, setTeam] = useState<Team | null>(null);
   const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
   const [isCreatingTeam, setIsCreatingTeam] = useState(false);
   const [isViewingUpcomingGames, setIsViewingUpcomingGames] = useState(false);
   const [customFormation, setCustomFormation] = useState<Player[][] | null>(null);
-  const isSmUp = useIsSmUp();
+
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
+    supabase.auth.getUser().then(async ({ data }) => {
       if (!data.user) {
         navigate({ to: '/login' });
         return;
       }
       setUser(data.user);
+
+      // check if user has a team
+      const { data: teamRow, error: teamError } = await supabase
+        .from('fantasy_team')
+        .select('id')
+        .eq('user_id', data.user.id)
+        .limit(1)
+        .maybeSingle();
+
+      if (teamError) {
+        console.error('Failed to load fantasy team:', teamError);
+      }
+
+      if (teamRow) {
+        const { data: squadRows, error: squadError } = await supabase
+          .from('fantasy_squad')
+          .select('players(id, name, position, price, epl_teams(name))')
+          .eq('fantasy_team_id', teamRow.id);
+
+        if (squadError) {
+          console.error('Failed to load fantasy squad:', squadError);
+        } else if (squadRows) {
+          
+          const players = squadRows
+            .map((row) => row.players)
+            .filter(Boolean)
+            .map(
+              (p: any) =>
+                new Player(p.name, p.position, p.epl_teams?.name ?? 'N/A', p.id, p.price)
+            );
+
+          setCustomFormation(groupIntoFormation(players));
+          setTeam(new Team(data.user.id, players));
+          setHasTeam(true);
+        }
+      }
+
       setLoading(false);
     });
   }, [navigate]);
@@ -239,7 +264,7 @@ function Profile() {
               sampleFormation.map((row, rowIndex) =>
                 row.map((_, i) => {
                   const left = 15 + ((i + 1) / (row.length + 1)) * 70
-                  const top = isSmUp ? rowTopPercent[rowIndex] : minRTP[rowIndex]
+                  const top = rowTopPercent[rowIndex]
                   return (
                     <div
                       key={`${rowIndex}-${i}`}

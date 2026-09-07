@@ -106,20 +106,11 @@ export function UpcomingGames({ onCancel }: { onCancel: () => void }) {
     page * MATCHWEEKS_PER_PAGE + MATCHWEEKS_PER_PAGE
   )
 
-  const handlePopulatePlayersTable = () => {
-        
-  };
 
   return (
     <div className="mt-5 mx-auto max-w-2xl px-5 pb-16 text-white w-full">
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold">Upcoming Fixtures</h2>
-        <button
-          onClick={handlePopulatePlayersTable}
-          className="rounded-md border border-gray-400 px-2.5 py-1.5 text-white hover:bg-[#630873] cursor-pointer" 
-        >
-            Populate Players Table
-        </button>
         <button
           onClick={onCancel}
           className="rounded-md border border-gray-400 px-2.5 py-1.5 text-white hover:bg-[#630873] cursor-pointer"
