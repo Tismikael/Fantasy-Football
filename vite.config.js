@@ -12,4 +12,16 @@ export default defineConfig({
       autoCodeSplitting: true,
     }),
     react()],
+  server: {
+    proxy: {
+      // The official FPL API doesn't send CORS headers, so browser requests
+      // to it directly are blocked. This dev-only proxy works around that;
+      // production will need a real server-side proxy (e.g. a Supabase Edge Function).
+      '/fpl-api': {
+        target: 'https://fantasy.premierleague.com/api',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/fpl-api/, ''),
+      },
+    },
+  },
 })

@@ -3,10 +3,10 @@ import { Player, type Position } from '../../../lib/models/player'
 import { GoMultiSelect } from "react-icons/go";
 
 const POSITION_LIMITS: Record<Position, number> = {
-  GK: 1,
-  DF: 4,
-  MF: 3,
-  ST: 3,
+  GK: 2,
+  DF: 5,
+  MF: 4,
+  ST: 4,
 }
 
 const MAX_PER_TEAM = 3
@@ -49,7 +49,7 @@ const PLAYER_POOL: Player[] = [
   new Player('Wood', 'ST', 'Nottingham Forest', 18, 7.0),
 ]
 
-const MAX_PLAYERS =11;
+const MAX_PLAYERS = 15;
 
 function isSamePlayer(a: Player, b: Player) {
   return a.team === b.team && a.jerseyNumber === b.jerseyNumber

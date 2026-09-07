@@ -6,7 +6,7 @@ import { BsPerson } from "react-icons/bs";
 import { Player, type Position } from '../../lib/models/player'
 import { Team } from '../../lib/models/team';
 import { TeamBuilder } from './-components/TeamBuilder'
-
+import { UpcomingGames } from './-components/UpcomingGames';
 
 export const Route = createFileRoute('/profile/')({
   component: Profile,
@@ -58,7 +58,6 @@ function EmptyPlayerCard(){
   )
 }
 
-// 1-4-3-3 formation, back row (GK) to front row (ST)
 const formation: Player[][] = [
   [new Player('Alisson', 'GK', 'Liverpool', 1, 5.5)],
   [
@@ -93,7 +92,6 @@ const reserves: Player[] = [
 const rowTopPercent = [88, 64, 38, 14]
 const minRTP = [50, 40, 20, 10]
 
-// Same back-to-front order as rowTopPercent/minRTP
 const formationOrder: Position[] = ['GK', 'DF', 'MF', 'ST']
 
 function groupIntoFormation(players: Player[]): Player[][] {
@@ -122,6 +120,7 @@ function Profile() {
   const [team, setTeam] = useState<Team | null>(null);
   const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
   const [isCreatingTeam, setIsCreatingTeam] = useState(false);
+  const [isViewingUpcomingGames, setIsViewingUpcomingGames] = useState(false);
   const [customFormation, setCustomFormation] = useState<Player[][] | null>(null);
   const isSmUp = useIsSmUp();
 
@@ -136,12 +135,13 @@ function Profile() {
     });
   }, [navigate]);
 
-  const handleUpcomingGames = () => {
-
-  };
 
   const handleCreateTeam = () => {
     setIsCreatingTeam(true);
+  };
+
+  const handleViewUpcomingGames = () => {
+    setIsViewingUpcomingGames(true);
   };
 
   const handleSaveTeam = (players: Player[]) => {
@@ -192,7 +192,7 @@ function Profile() {
       {/* Upcoming Games Section */}
       <div className="flex justify-center mt-10">
         <button 
-          onClick={handleUpcomingGames}
+          onClick={handleViewUpcomingGames}
           className="rounded-lg border-2 border-gray-400 font-semibold text-xl px-3.5 py-2.5 text-white hover:bg-[#630873] w-md sm:w-lg cursor-pointer"
         >
             View Upcoming Games
@@ -200,7 +200,7 @@ function Profile() {
       </div>
 
       {/* Create Team Section */}
-      {!hasTeam && !isCreatingTeam && (
+      {!hasTeam && !isCreatingTeam && !isViewingUpcomingGames &&(
         <div className="flex justify-start mt-5 px-5">
           <button 
             onClick={handleCreateTeam}
@@ -211,11 +211,17 @@ function Profile() {
         </div>
       )}
 
-      {/* Soccer Field Section  */}
       {isCreatingTeam ? (
         <TeamBuilder onCancel={() => setIsCreatingTeam(false)} onSave={handleSaveTeam} />
-      ) : (
+      ) : 
+      
+      isViewingUpcomingGames ? (
+        <UpcomingGames onCancel={() => setIsViewingUpcomingGames(false)} />
+      ) :
+      
+      (
         <div className="mt-5 relative flex justify-center items-center bg-[url('/soccer-field.jpg')] bg-no-repeat bg-center bg-[length:70%_100%] h-screen w-screen ">
+        {/* Soccer Field Section  */}
             {hasTeam ? (
               (customFormation ?? formation).map((row, rowIndex) =>
                 row.map((player, i) => {
@@ -252,7 +258,7 @@ function Profile() {
       )}
 
       {/* Reserves Section */}
-      {!isCreatingTeam && (
+      {!isCreatingTeam && !isViewingUpcomingGames && (
         <div className="flex justify-center gap-4 mt-5">
           {hasTeam
             ? reserves.map((player) => (
