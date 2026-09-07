@@ -20,6 +20,7 @@ const POSITION_LIMITS: Record<Position, number> = {
 
 const MAX_PER_TEAM = 3
 const MAX_PLAYERS = 15
+const MIN_NUM_TEAMS = 5;
 
 const POSITION_GROUPS: { position: Position; label: string }[] = [
   { position: 'GK', label: 'Goalkeepers' },
@@ -89,6 +90,10 @@ export function TeamBuilder({
   }
 
   const handleResetFilter = () => {
+    if (squad.length > 0){
+      setError('Unselect Players to reset teams selection');
+      return;
+    }
     setPendingTeams([])
     setActiveTeams([])
   }
@@ -124,16 +129,24 @@ export function TeamBuilder({
     setBudget((b) => b - player.price)
   }
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (squad.length !== MAX_PLAYERS) {
       setError(`You need exactly ${MAX_PLAYERS} players to save your team.`)
       return
     }
-
     const players = squad.map(
       (p) => new Player(p.name, p.position, teams.get(p.team_id) ?? 'Unknown', p.id, p.price)
     )
-    onSave(players)
+
+    const playerIds = squad.map((s) => s.id);
+
+    // create new fantasy Team
+    const { error } = await supabase.rpc('create_new_team', { player_ids: playerIds});
+    if (!error){
+      console.log('db updated successfully!');
+      onSave(players);
+    }
+
   }
 
   const isSquadFull = squad.length === MAX_PLAYERS
@@ -161,9 +174,16 @@ export function TeamBuilder({
           <h2>£{budget.toFixed(1)}</h2>
         </div>
       </div>
-      <p className="mt-1 text-sm text-gray-300">
-        Select a maximum of {MAX_PER_TEAM} players from a single team.
-      </p>
+
+      <p className="mt-3 font-semibold text-gray-300">Rules</p>
+      <ol className="list-decimal list-inside space-y-1">
+        <li className="text-sm text-gray-300">
+          Select a minimum of {MIN_NUM_TEAMS} teams.
+        </li>
+        <li className="text-sm text-gray-300">
+          You can only select at most {MAX_PER_TEAM} players from a single team.
+        </li>
+      </ol>
 
       <div className="mt-4 flex items-center gap-3">
         <button
@@ -194,8 +214,10 @@ export function TeamBuilder({
           </div>
           <div className="mt-4 flex gap-2">
             <button
+              disabled={pendingTeams.length < MIN_NUM_TEAMS}
               onClick={handleFilterTeams}
-              className="rounded-md bg-green-500 px-3 py-1.5 font-semibold hover:bg-green-400 cursor-pointer"
+              className="rounded-md bg-green-500 px-3 py-1.5 font-semibold hover:bg-green-400 cursor-pointer
+                          disabled:bg-green-900 hover:bg-green-900"
             >
               Filter Teams
             </button>
@@ -203,7 +225,7 @@ export function TeamBuilder({
               onClick={handleResetFilter}
               className="rounded-md border border-gray-400 px-3 py-1.5 hover:bg-[#630873] cursor-pointer"
             >
-              Reset
+              Reset Teams
             </button>
           </div>
         </div>

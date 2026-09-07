@@ -21,7 +21,6 @@ function PlayerCard({ player, onClick }: { player: Player; onClick: () => void }
       className="flex flex-col items-center justify-center gap-1 bg-blue-200 w-13 h-15 rounded-lg sm:w-20 sm:h-20 sm:rounded-3xl cursor-pointer hover:bg-blue-300"
     >
       <span className="text-black text-xs sm:text-md font-semibold truncate w-full text-center px-1">{player.name}</span>
-      <span className="text-black text-xs sm:text-md font-semibold truncate w-full text-center px-1">{player.jerseyNumber}</span>
     </div>
   )
 }
@@ -43,7 +42,6 @@ function PlayerModal({ player, onClose }: { player: Player; onClose: () => void 
           &times;
         </button>
         <h2 className="text-xl font-bold text-black">{player.name}</h2>
-        <p className="mt-2 text-gray-700 font-bold text-xl sm:text-3xl">{player.jerseyNumber}</p>
         <p className="mt-1 text-gray-700 font-bold text-xl sm:text-1xl">{player.team}</p>
       </div>
     </div>
