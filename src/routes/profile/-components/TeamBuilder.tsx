@@ -1,6 +1,15 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Player, type Position } from '../../../lib/models/player'
 import { GoMultiSelect } from "react-icons/go";
+import { supabase } from '../../../lib/supabaseClient';
+
+interface PlayerData {
+  id: number;
+  name: string;
+  position: Position;
+  price: number;
+  team_id: number;
+}
 
 const POSITION_LIMITS: Record<Position, number> = {
   GK: 2,
@@ -10,13 +19,7 @@ const POSITION_LIMITS: Record<Position, number> = {
 }
 
 const MAX_PER_TEAM = 3
-
-const PREMIER_LEAGUE_TEAMS = [
-  'Arsenal', 'Aston Villa', 'Bournemouth', 'Brentford', 'Brighton', 'Burnley',
-  'Chelsea', 'Crystal Palace', 'Everton', 'Fulham', 'Leeds United', 'Liverpool',
-  'Manchester City', 'Manchester United', 'Newcastle United', 'Nottingham Forest',
-  'Sunderland', 'Tottenham Hotspur', 'West Ham United', 'Wolverhampton Wanderers',
-]
+const MAX_PLAYERS = 15
 
 const POSITION_GROUPS: { position: Position; label: string }[] = [
   { position: 'GK', label: 'Goalkeepers' },
@@ -25,34 +28,8 @@ const POSITION_GROUPS: { position: Position; label: string }[] = [
   { position: 'ST', label: 'Forwards' },
 ]
 
-const PLAYER_POOL: Player[] = [
-  new Player('Pickford', 'GK', 'Everton', 1, 5.5),
-  new Player('Alisson', 'GK', 'Liverpool', 2, 5.5),
-  new Player('Raya', 'GK', 'Arsenal', 3, 5.0),
-  new Player('Sels', 'GK', 'Nottingham Forest', 4, 5.0),
-
-  new Player('Van Dijk', 'DF', 'Liverpool', 5, 6.5),
-  new Player('Gabriel', 'DF', 'Arsenal', 6, 5.5),
-  new Player('Saliba', 'DF', 'Arsenal', 7, 5.5),
-  new Player('Gvardiol', 'DF', 'Manchester City', 8, 6.0),
-  new Player('Milenkovic', 'DF', 'Nottingham Forest', 9, 5.5),
-
-  new Player('Salah', 'MF', 'Liverpool', 10, 13.0),
-  new Player('Palmer', 'MF', 'Chelsea', 11, 10.5),
-  new Player('Bruno Fernandes', 'MF', 'Manchester United', 12, 9.0),
-  new Player('Mbeumo', 'MF', 'Manchester United', 13, 8.0),
-  new Player('Rice', 'MF', 'Arsenal', 14, 5.5),
-
-  new Player('Haaland', 'ST', 'Manchester City', 15, 14.5),
-  new Player('Isak', 'ST', 'Liverpool', 16, 8.5),
-  new Player('Watkins', 'ST', 'Aston Villa', 17, 8.0),
-  new Player('Wood', 'ST', 'Nottingham Forest', 18, 7.0),
-]
-
-const MAX_PLAYERS = 15;
-
-function isSamePlayer(a: Player, b: Player) {
-  return a.team === b.team && a.jerseyNumber === b.jerseyNumber
+function isSamePlayer(a: PlayerData, b: PlayerData) {
+  return a.id === b.id
 }
 
 export function TeamBuilder({
@@ -62,21 +39,43 @@ export function TeamBuilder({
   onCancel: () => void
   onSave: (players: Player[]) => void
 }) {
-  const [players, setPlayers] = useState<Player[]>([])
   const [error, setError] = useState<string | null>(null)
+
+  const [teams, setTeams] = useState<Map<number, string>>(new Map())
+  const [playerPool, setPlayerPool] = useState<PlayerData[]>([])
+  const [squad, setSquad] = useState<PlayerData[]>([])
 
   const [showTeamFilter, setShowTeamFilter] = useState(false)
   const [pendingTeams, setPendingTeams] = useState<string[]>([])
   const [activeTeams, setActiveTeams] = useState<string[]>([])
-  const [budget, setBudget] = useState(100);
+  const [budget, setBudget] = useState(100)
+
+  useEffect(() => {
+    const getTeamData = async () => {
+      const { data, error } = await supabase.from('epl_teams').select('*')
+      if (error || !data) return
+      setTeams(new Map(data.map((team) => [team.id, team.name])))
+    }
+
+    const getPlayersData = async () => {
+      const { data, error } = await supabase
+        .from('players')
+        .select('id, name, position, price, team_id')
+
+      if (!error && data) setPlayerPool(data)
+    }
+
+    getTeamData()
+    getPlayersData()
+  }, [])
 
   const positionCount = (position: Position) =>
-    players.filter((p) => p.position === position).length
+    squad.filter((p) => p.position === position).length
 
-  const teamCount = (team: string) =>
-    players.filter((p) => p.team === team).length
+  const teamCount = (teamName: string) =>
+    squad.filter((p) => teams.get(p.team_id) === teamName).length
 
-  const isSelected = (player: Player) => players.some((p) => isSamePlayer(p, player))
+  const isSelected = (player: PlayerData) => squad.some((p) => isSamePlayer(p, player))
 
   const togglePendingTeam = (team: string) => {
     setPendingTeams((prev) =>
@@ -94,24 +93,25 @@ export function TeamBuilder({
     setActiveTeams([])
   }
 
-  const handleTogglePoolPlayer = (player: Player) => {
+  const handleTogglePoolPlayer = (player: PlayerData) => {
     setError(null)
 
     if (isSelected(player)) {
-      setPlayers(players.filter((p) => !isSamePlayer(p, player)))
+      setSquad(squad.filter((p) => !isSamePlayer(p, player)))
       setBudget((b) => b + player.price)
       return
     }
 
-    if (players.length >= 11) {
-      setError('Your squad already has 11 players.')
+    if (squad.length >= MAX_PLAYERS) {
+      setError(`Your squad already has ${MAX_PLAYERS} players.`)
       return
     }
     if (positionCount(player.position) >= POSITION_LIMITS[player.position]) {
       setError(`You already have the max number of ${player.position}s (${POSITION_LIMITS[player.position]}).`)
       return
     }
-    if (teamCount(player.team) >= MAX_PER_TEAM) {
+    const teamName = teams.get(player.team_id) ?? ''
+    if (teamCount(teamName) >= MAX_PER_TEAM) {
       setError(`You can only select a maximum of ${MAX_PER_TEAM} players from a single team.`)
       return
     }
@@ -120,23 +120,27 @@ export function TeamBuilder({
       return
     }
 
-    setPlayers([...players, player])
+    setSquad([...squad, player])
     setBudget((b) => b - player.price)
   }
 
   const handleSave = () => {
-    if (players.length !== 11) {
-      setError('You need exactly 11 players to save your team.')
+    if (squad.length !== MAX_PLAYERS) {
+      setError(`You need exactly ${MAX_PLAYERS} players to save your team.`)
       return
     }
+
+    const players = squad.map(
+      (p) => new Player(p.name, p.position, teams.get(p.team_id) ?? 'Unknown', p.id, p.price)
+    )
     onSave(players)
   }
 
-  const isPendingMax = players.length === MAX_PLAYERS;
-  
+  const isSquadFull = squad.length === MAX_PLAYERS
+
   const filteredPool = activeTeams.length
-    ? PLAYER_POOL.filter((p) => activeTeams.includes(p.team))
-    : PLAYER_POOL
+    ? playerPool.filter((p) => activeTeams.includes(teams.get(p.team_id) ?? ''))
+    : [];
 
   return (
     <div className="mt-5 mx-auto max-w-2xl px-5 pb-16 text-white w-full">
@@ -150,8 +154,8 @@ export function TeamBuilder({
         </button>
       </div>
       <div className="flex justify-between items-center mt-5">
-        <div className={`rounded-lg ${isPendingMax ? 'bg-green-500' : 'bg-red-500'}  w-15 text-center p-1.5`}>
-          <h2> {players.length}/{MAX_PLAYERS}</h2>
+        <div className={`rounded-lg ${isSquadFull ? 'bg-green-500' : 'bg-red-500'}  w-15 text-center p-1.5`}>
+          <h2> {squad.length}/{MAX_PLAYERS}</h2>
         </div>
         <div className="rounded-lg bg-green-500 w-15 text-center p-1.5">
           <h2>£{budget.toFixed(1)}</h2>
@@ -177,14 +181,14 @@ export function TeamBuilder({
       {showTeamFilter && (
         <div className="mt-3 rounded-md border border-gray-600 bg-[#42095a] p-4">
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-            {PREMIER_LEAGUE_TEAMS.map((team) => (
-              <label key={team} className="flex items-center gap-2 text-sm">
+            {Array.from(teams).map(([id, name]) => (
+              <label key={id} className="flex items-center gap-2 text-sm">
                 <input
                   type="checkbox"
-                  checked={pendingTeams.includes(team)}
-                  onChange={() => togglePendingTeam(team)}
+                  checked={pendingTeams.includes(name)}
+                  onChange={() => togglePendingTeam(name)}
                 />
-                {team}
+                {name}
               </label>
             ))}
           </div>
@@ -218,10 +222,12 @@ export function TeamBuilder({
                 {playersInGroup.map((player) => {
                   const selected = isSelected(player)
                   return (
-                    <li key={`${player.team}-${player.jerseyNumber}`} className="flex items-center justify-between py-2">
+                    <li key={player.id} className="flex items-center justify-between py-2">
                       <span>
                         {player.name}{' '}
-                        <span className="text-sm text-gray-400">· {player.team} · £{player.price.toFixed(1)}m</span>
+                        <span className="text-sm text-gray-400">
+                          · {teams.get(player.team_id) ?? 'Unknown'} · £{player.price.toFixed(1)}m
+                        </span>
                       </span>
                       <button
                         onClick={() => handleTogglePoolPlayer(player)}
@@ -243,7 +249,7 @@ export function TeamBuilder({
 
       <button
         onClick={handleSave}
-        disabled={players.length !== 11}
+        disabled={squad.length !== MAX_PLAYERS}
         className="mt-6 w-full rounded-md bg-green-500 px-3.5 py-2.5 font-semibold hover:bg-green-400 disabled:opacity-50 cursor-pointer"
       >
         Save Team

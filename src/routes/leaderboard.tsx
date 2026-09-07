@@ -1,6 +1,8 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabaseClient'
+import type { User } from '@supabase/supabase-js'
+
 
 export const Route = createFileRoute('/leaderboard')({
   component: Leaderboard,
@@ -11,10 +13,21 @@ type LeaderboardEntry = {
   total_points: number
 }
 
-
+// Name, position, price, team_id
 function Leaderboard() {
   const [leaderboardData, setLeaderboardData] = useState<LeaderboardEntry[] | null>(null);
   const navigate = useNavigate();
+  const [user, setUser] = useState<User | null>(null);
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      if (!data.user) {
+        navigate({ to: '/login' });
+        return;
+      }
+      setUser(data.user);
+    });
+  }, []);
 
   useEffect(() => {
     const getTopTenUsers = async () => {
@@ -32,6 +45,7 @@ function Leaderboard() {
 
   },[]);
 
+  const username = user?.user_metadata?.username;
 
 
   return (
@@ -59,7 +73,7 @@ function Leaderboard() {
           <tbody>
             {leaderboardData ?
             leaderboardData.map((entry, index) => {
-              const isYou = entry.username === 'MikaelYikum'
+              const isYou = entry.username === username
               return (
                 <tr
                   key={index}
