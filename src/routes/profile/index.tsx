@@ -6,6 +6,7 @@ import { BsPerson } from "react-icons/bs";
 import { Player, type Position } from '../../lib/models/player'
 import { Team } from '../../lib/models/team';
 import { TeamBuilder } from './-components/TeamBuilder'
+import { RosterBuilder } from './-components/RosterBuilder';
 import { UpcomingGames } from './-components/UpcomingGames';
 
 export const Route = createFileRoute('/profile/')({
@@ -56,39 +57,11 @@ function EmptyPlayerCard(){
   )
 }
 
-const formation: Player[][] = [
-  [new Player('Alisson', 'GK', 'Liverpool', 1, 5.5)],
-  [
-    new Player('Trent', 'DF', 'Real Madrid', 2, 7.0),
-    new Player('Van Dijk', 'DF', 'Liverpool', 4, 6.5),
-    new Player('Gabriel', 'DF', 'Arsenal', 6, 5.5),
-    new Player('Robertson', 'DF', 'Liverpool', 26, 6.0),
-  ],
-  [
-    new Player('Rice', 'MF', 'Arsenal', 41, 5.5),
-    new Player('Bruno Fernandes', 'MF', 'Manchester United', 8, 9.0),
-    new Player('Palmer', 'MF', 'Chelsea', 20, 10.5),
-  ],
-  [
-    new Player('Salah', 'ST', 'Liverpool', 11, 13.0),
-    new Player('Haaland', 'ST', 'Manchester City', 9, 14.5),
-    new Player('Isak', 'ST', 'Liverpool', 14, 8.5),
-  ],
-]
-
 const sampleFormation: number[][] = [
   [1],[1,1,1,1],[1,1,1],[1,1,1]
 ]
 
-const reserves: Player[] = [
-  new Player('Raya', 'GK', 'Arsenal', 22, 5.0),
-  new Player('Saliba', 'DF', 'Arsenal', 12, 5.5),
-  new Player('Foden', 'MF', 'Manchester City', 47, 7.5),
-  new Player('Watkins', 'ST', 'Aston Villa', 9, 8.0),
-]
-
 const rowTopPercent = [88, 64, 38, 14]
-const minRTP = [50, 40, 20, 10]
 
 const formationOrder: Position[] = ['GK', 'DF', 'MF', 'ST']
 
@@ -102,13 +75,26 @@ function Profile() {
   const navigate = useNavigate();
   const [user, setUser] = useState<User | null>(null);
   const [team, setTeam] = useState<Team | null>(null);
+  const [startingElevenIds, setStartingElevenIds] = useState<number[] | null>(null);
+  const [nextDeadline, setNextDeadline] = useState<Date | null>(null);
+
   const [loading, setLoading] = useState(true);
   const [hasTeam, setHasTeam] = useState(false);
-  const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
+
   const [isCreatingTeam, setIsCreatingTeam] = useState(false);
   const [isViewingUpcomingGames, setIsViewingUpcomingGames] = useState(false);
-  const [customFormation, setCustomFormation] = useState<Player[][] | null>(null);
+  const [isCreatingStartingEleven, setIsCreatingStartingEleven] = useState(false);
 
+  const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
+
+  const hasStartingEleven = startingElevenIds !== null;
+  const canEditLineup = nextDeadline !== null;
+  const startingPlayers = hasStartingEleven && team
+    ? team.players.filter((p) => startingElevenIds!.includes(p.id))
+    : [];
+  const benchPlayers = hasStartingEleven && team
+    ? team.players.filter((p) => !startingElevenIds!.includes(p.id))
+    : [];
 
   useEffect(() => {
     supabase.auth.getUser().then(async ({ data }) => {
@@ -118,10 +104,25 @@ function Profile() {
       }
       setUser(data.user);
 
+      // check deadline to set starting lineup
+      const { data: deadlineRow, error: deadlineError } = await supabase
+        .from('epl_matchweeks')
+        .select('deadline_time')
+        .gt('deadline_time', new Date().toISOString())
+        .order('deadline_time', { ascending: true })
+        .limit(1)
+        .maybeSingle();
+
+      if (deadlineError) {
+        console.error('Failed to load next matchweek deadline:', deadlineError);
+      } else if (deadlineRow) {
+        setNextDeadline(new Date(deadlineRow.deadline_time));
+      }
+
       // check if user has a team
       const { data: teamRow, error: teamError } = await supabase
         .from('fantasy_team')
-        .select('id')
+        .select('id, starting_eleven')
         .eq('user_id', data.user.id)
         .limit(1)
         .maybeSingle();
@@ -130,6 +131,7 @@ function Profile() {
         console.error('Failed to load fantasy team:', teamError);
       }
 
+      // load fantasy squad
       if (teamRow) {
         const { data: squadRows, error: squadError } = await supabase
           .from('fantasy_squad')
@@ -139,7 +141,7 @@ function Profile() {
         if (squadError) {
           console.error('Failed to load fantasy squad:', squadError);
         } else if (squadRows) {
-          
+
           const players = squadRows
             .map((row) => row.players)
             .filter(Boolean)
@@ -148,9 +150,9 @@ function Profile() {
                 new Player(p.name, p.position, p.epl_teams?.name ?? 'N/A', p.id, p.price)
             );
 
-          setCustomFormation(groupIntoFormation(players));
           setTeam(new Team(data.user.id, players));
           setHasTeam(true);
+          setStartingElevenIds(teamRow.starting_eleven);
         }
       }
 
@@ -163,14 +165,23 @@ function Profile() {
     setIsCreatingTeam(true);
   };
 
+  const handleCreateStartingEleven = () => {
+    setIsCreatingStartingEleven(true);
+  };
+
   const handleViewUpcomingGames = () => {
     setIsViewingUpcomingGames(true);
   };
 
   const handleSaveTeam = (players: Player[]) => {
-    setCustomFormation(groupIntoFormation(players));
+    setTeam(new Team(user!.id, players));
     setHasTeam(true);
     setIsCreatingTeam(false);
+  };
+
+  const handleSaveStartingEleven = (lineup: Team) => {
+    setStartingElevenIds(lineup.players.map((p) => p.id));
+    setIsCreatingStartingEleven(false);
   };
 
   const handleLeaderboard = () => {
@@ -187,6 +198,9 @@ function Profile() {
   }
 
   const username = user?.user_metadata?.username ?? user?.email;
+  const pitchFormation = hasTeam
+    ? groupIntoFormation(hasStartingEleven ? startingPlayers : team!.players)
+    : null;
 
   return (
     <div className="py-10 bg-[#32043a] min-h-screen flex flex-col">
@@ -197,7 +211,7 @@ function Profile() {
         <div className="flex gap-4">
             <button
               onClick={handleLeaderboard}
-              className="rounded-md border border-gray-400 font-semibold px-2.5 py-1.5 text-white hover:bg-[#630873] cursor-pointer"       
+              className="rounded-md border border-gray-400 font-semibold px-2.5 py-1.5 text-white hover:bg-[#630873] cursor-pointer"
             >
               Leaderboard
             </button>
@@ -213,19 +227,21 @@ function Profile() {
       <hr className="mt-5 border-gray-100 border-1.5"/>
 
       {/* Upcoming Games Section */}
-      <div className="flex justify-center mt-10">
-        <button 
-          onClick={handleViewUpcomingGames}
-          className="rounded-lg border-2 border-gray-400 font-semibold text-xl px-3.5 py-2.5 text-white hover:bg-[#630873] w-md sm:w-lg cursor-pointer"
-        >
-            View Upcoming Games
-        </button>
-      </div>
+      {!isCreatingStartingEleven && (
+        <div className="flex justify-center mt-10">
+          <button
+            onClick={handleViewUpcomingGames}
+            className="rounded-lg border-2 border-gray-400 font-semibold text-xl px-3.5 py-2.5 text-white hover:bg-[#630873] w-md sm:w-lg cursor-pointer"
+          >
+              View Upcoming Fixtures
+          </button>
+        </div>
+      )}
 
       {/* Create Team Section */}
       {!hasTeam && !isCreatingTeam && !isViewingUpcomingGames &&(
         <div className="flex justify-start mt-5 px-5">
-          <button 
+          <button
             onClick={handleCreateTeam}
             className="rounded-lg border-2 border-gray-400 font-normal text-xl px-2.5 py-1.5 text-white hover:bg-[#630873] cursor-pointer"
           >
@@ -234,24 +250,46 @@ function Profile() {
         </div>
       )}
 
+      {/* Starting Eleven Section */}
+      {hasTeam && canEditLineup && !isCreatingStartingEleven && !isViewingUpcomingGames &&(
+        <div className="flex flex-col justifty-center mx-auto mt-5">
+          <button
+            onClick={handleCreateStartingEleven}
+            className="rounded-lg border-2 border-gray-400 font-normal text-xl px-2.5 py-1.5 text-white hover:bg-[#630873] cursor-pointer"
+          >
+            {hasStartingEleven ? 'Edit Starting Eleven' : 'Create Starting Eleven'}
+          </button>
+        </div>
+      )}
+
       {isCreatingTeam ? (
         <TeamBuilder onCancel={() => setIsCreatingTeam(false)} onSave={handleSaveTeam} />
-      ) : 
-      
+      ) :
+
+      isCreatingStartingEleven && team ? (
+        <RosterBuilder
+          team={team}
+          initialSelectedIds={startingElevenIds ?? undefined}
+          isEditing={hasStartingEleven}
+          onCancel={() => setIsCreatingStartingEleven(false)}
+          onSave={handleSaveStartingEleven}
+        />
+      ) :
+
       isViewingUpcomingGames ? (
         <UpcomingGames onCancel={() => setIsViewingUpcomingGames(false)} />
       ) :
-      
+
       (
         <div className="mt-5 relative flex justify-center items-center bg-[url('/soccer-field.jpg')] bg-no-repeat bg-center bg-[length:70%_100%] h-screen w-screen ">
         {/* Soccer Field Section  */}
-            {hasTeam ? (
-              (customFormation ?? formation).map((row, rowIndex) =>
+            {pitchFormation ? (
+              pitchFormation.map((row, rowIndex) =>
                 row.map((player, i) => {
                   const left = 15 + ((i + 1) / (row.length + 1)) * 70
                   return (
                     <div
-                      key={player.jerseyNumber}
+                      key={player.id}
                       className="absolute -translate-x-1/2 -translate-y-1/2"
                       style={{ top: `${rowTopPercent[rowIndex]}%`, left: `${left}%` }}
                     >
@@ -281,13 +319,11 @@ function Profile() {
       )}
 
       {/* Reserves Section */}
-      {!isCreatingTeam && !isViewingUpcomingGames && (
+      {hasStartingEleven && !isCreatingTeam && !isViewingUpcomingGames && !isCreatingStartingEleven && (
         <div className="flex justify-center gap-4 mt-5">
-          {hasTeam
-            ? reserves.map((player) => (
-                <PlayerCard key={player.jerseyNumber} player={player} onClick={() => setSelectedPlayer(player)} />
-              ))
-            : reserves.map((_, i) => <EmptyPlayerCard key={i} />)}
+          {benchPlayers.map((player) => (
+            <PlayerCard key={player.id} player={player} onClick={() => setSelectedPlayer(player)} />
+          ))}
         </div>
       )}
 

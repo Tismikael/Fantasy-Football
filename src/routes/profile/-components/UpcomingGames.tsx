@@ -119,7 +119,7 @@ export function UpcomingGames({ onCancel }: { onCancel: () => void }) {
         </button>
       </div>
 
-      {loading && <p className="mt-5 text-gray-300 text-center">Loading fixtures...</p>}
+      {loading && <p className="mt-5 text-gray-300 text-center items-center">Loading fixtures...</p>}
       {error && <p className="mt-5 text-red-400">{error}</p>}
 
       {!loading && !error && (

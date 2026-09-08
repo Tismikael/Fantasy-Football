@@ -6,7 +6,7 @@ export class Player {
         private _name: string,
         private _position: Position,
         private _team: string,
-        private _jerseyNumber: number,
+        private _id: number,
         private _price: number
     ){}
 
@@ -24,8 +24,8 @@ export class Player {
         return this._team;
     }
 
-    get jerseyNumber() {
-        return this._jerseyNumber;
+    get id() {
+        return this._id;
     }
 
     get price() {
@@ -47,7 +47,7 @@ export class Player {
     }
 
     set jerseyNumber(jerseyNumber: number) {
-        this._jerseyNumber = jerseyNumber;
+        this._id = jerseyNumber;
     }
 
     set price(price: number) {

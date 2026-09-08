@@ -24,4 +24,8 @@ export class Team {
     set players(players: Player[]){
         this._players = players;
     }
+
+    createLineup(players: Player[]){
+        
+    }
 }

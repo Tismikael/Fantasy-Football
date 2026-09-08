@@ -2,32 +2,15 @@ import { useEffect, useState } from 'react'
 import { Player, type Position } from '../../../lib/models/player'
 import { GoMultiSelect } from "react-icons/go";
 import { supabase } from '../../../lib/supabaseClient';
+import {
+  PlayerData,
+  POSITION_LIMITS,
+  MAX_PER_TEAM,
+  MAX_PLAYERS,
+  MIN_NUM_TEAMS,
+  POSITION_GROUPS
+} from '../../../constants/builder'
 
-interface PlayerData {
-  id: number;
-  name: string;
-  position: Position;
-  price: number;
-  team_id: number;
-}
-
-const POSITION_LIMITS: Record<Position, number> = {
-  GK: 2,
-  DF: 5,
-  MF: 4,
-  ST: 4,
-}
-
-const MAX_PER_TEAM = 3
-const MAX_PLAYERS = 15
-const MIN_NUM_TEAMS = 5;
-
-const POSITION_GROUPS: { position: Position; label: string }[] = [
-  { position: 'GK', label: 'Goalkeepers' },
-  { position: 'DF', label: 'Defenders' },
-  { position: 'MF', label: 'Midfielders' },
-  { position: 'ST', label: 'Forwards' },
-]
 
 function isSamePlayer(a: PlayerData, b: PlayerData) {
   return a.id === b.id
