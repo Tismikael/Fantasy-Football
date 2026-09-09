@@ -1,7 +1,5 @@
 import { createClient } from 'npm:@supabase/supabase-js@2'
-
-const BOOTSTRAP_STATIC_URL = 'https://fantasy.premierleague.com/api/bootstrap-static/'
-
+import { BOOTSTRAP_STATIC_URL } from '../../../src/constants/url'
 const POSITION_BY_ELEMENT_TYPE: Record<number, string> = {
   1: 'GK',
   2: 'DF',
